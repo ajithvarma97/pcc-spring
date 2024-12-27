@@ -33,7 +33,6 @@ build/
 .vscode/
 
 ###Spring Boot###
-src/main/resources/application.properties
 .mvn/wrapper/
 mvnw
 mvnw.cmd
