@@ -16,7 +16,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -27,6 +26,12 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
+    - name: Set environment variables
+      env:
+        DB_URL: jdbc:mysql://localhost:3306/your_database
+        DB_USERNAME: your_username
+        DB_PASSWORD: your_password
+      run: echo "Environment variables set."
     - name: Build with Maven
       run: mvn -B package --file pom.xml
 
