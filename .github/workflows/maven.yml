@@ -1,12 +1,4 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-name: Java CI with Maven
+name: Java CI/CD with Maven
 
 on:
   push:
@@ -15,22 +7,44 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-    - name: Set environment variables
-      env:
-        DB_URL: jdbc:mysql://localhost:3306/your_database
-        DB_USERNAME: your_username
-        DB_PASSWORD: your_password
-      run: echo "Environment variables set."
+
     - name: Build with Maven
       run: mvn -B package --file pom.xml
+
+    - name: Deploy to Ubuntu Server
+      env:
+        GCP_SERVER_IP: ${{ secrets.GCP_SERVER_IP }}
+        GCP_SERVER_USER: ${{ secrets.GCP_SERVER_USER }}
+        GCP_SERVER_SSH_KEY: ${{ secrets.GCP_SERVER_SSH_KEY }}
+        DB_URL: ${{ secrets.DB_URL }}
+        DB_USERNAME: ${{ secrets.DB_USERNAME }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      run: |
+        # Write the SSH private key to a file
+        echo "${GCP_SERVER_SSH_KEY}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+
+        # Copy the JAR file to the server
+        scp -o StrictHostKeyChecking=no target/*.jar ${GCP_SERVER_USER}@${GCP_SERVER_IP}:/home/${GCP_SERVER_USER}/app.jar
+
+        # SSH into the server and configure environment variables
+        ssh -o StrictHostKeyChecking=no ${GCP_SERVER_USER}@${GCP_SERVER_IP} << EOF
+          export DB_URL=${DB_URL}
+          export DB_USERNAME=${DB_USERNAME}
+          export DB_PASSWORD=${DB_PASSWORD}
+          pkill -f 'java -jar' || true
+          nohup java -jar /home/${GCP_SERVER_USER}/app.jar > app.log 2>&1 &
+        EOF
